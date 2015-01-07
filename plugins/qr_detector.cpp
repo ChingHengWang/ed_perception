@@ -96,7 +96,7 @@ void QRDetector::process(ed::EntityConstPtr e, tue::Configuration& result) const
 
         geo::Pose3D pose;
         if (qr_detector_zbar::getPoseFromCornerPoints(v,pose)) {
-            pose = msr->sensorPose() * pose;
+            pose = msr->sensorPoseMAP() * pose;
             geo::Pose3D snapped;
             snapZHorizontalOrVertical(pose, snapped);
 
