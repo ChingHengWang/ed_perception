@@ -144,7 +144,8 @@ private:
                    int n_face,
                    std::vector<cv::Mat>& face_images,
                    std::vector<int>& face_labels,
-                   std::map<int, std::string>& faces_info) const;
+                   std::map<int, std::string>& faces_info,
+                   const cv::Mat &entity_image) const;
 
     // trains the opencv FaceRecognizers
     void trainRecognizers(std::vector<cv::Mat>& images, std::vector<int>& labels, std::vector<cv::Ptr<cv::FaceRecognizer> >& models) const;

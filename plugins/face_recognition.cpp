@@ -245,7 +245,7 @@ void FaceRecognition::process(ed::EntityConstPtr e, tue::Configuration& config) 
         if (max_y < p_2d.y) max_y = p_2d.y;
     }
 
-//    cv::Rect bouding_box (min_x, min_y, max_x - min_x, max_y - min_y);
+    cv::Rect bouding_box(min_x, min_y, max_x - min_x, max_y - min_y);
 
     // ----------------------- Process -----------------------
 
@@ -294,7 +294,7 @@ void FaceRecognition::process(ed::EntityConstPtr e, tue::Configuration& config) 
         face_confidence_match = 0;
 
         // true when learning is complete
-        if (learnFace(learning_name_, last_label_, face_aligned, entity_histogram, n_faces_current_, images_, labels_, labels_info_)){
+        if (learnFace(learning_name_, last_label_, face_aligned, entity_histogram, n_faces_current_, images_, labels_, labels_info_, cropped_image(bouding_box))){
             std::cout << "[" << module_name_ << "] " << "Learning complete!" << std::endl;
 
             // reset number of learned faces
@@ -452,7 +452,8 @@ bool FaceRecognition::learnFace(std::string person_name,
                                 int n_face,
                                 std::vector<cv::Mat>& face_images,
                                 std::vector<int>& face_labels,
-                                std::map<int, std::string>& faces_info) const{
+                                std::map<int, std::string>& faces_info,
+                                const cv::Mat& entity_image) const{
 
     std::map <int, std::vector<cv::Mat> >::iterator find_it;
 
@@ -486,10 +487,13 @@ bool FaceRecognition::learnFace(std::string person_name,
         if( !(boost::filesystem::exists(dir)))
             boost::filesystem::create_directories(dir);
 
-        // save image
+        // save face image
         std::string file_name = person_name + "_" + ed::Entity::generateID().c_str();
         cv::imwrite(local_save_dir + file_name + ".pgm", face);
 
+        // save entity image, used for debug
+//        file_name = person_name + "_" + ed::Entity::generateID().c_str();
+//        cv::imwrite(local_save_dir + "../entities/" + file_name + ".pgm", entity_image);
 
         // -------------------- update CSV file --------------------
         std::stringstream path_on_disk;
