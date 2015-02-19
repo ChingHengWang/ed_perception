@@ -14,15 +14,12 @@
 
 #include <boost/filesystem.hpp>
 
-// #include <openbr/openbr_plugin.h>
-
 // ----------------------------------------------------------------------------------------------------
 
 OpenBrEd::OpenBrEd() :
-    PerceptionModule("face_detector"),
+    PerceptionModule("open_biometrics_ed"),
     init_success_(false)
 {
-//    br::Context::finalize();
 }
 
 
@@ -31,6 +28,7 @@ OpenBrEd::OpenBrEd() :
 
 OpenBrEd::~OpenBrEd()
 {
+    br::Context::finalize();
 }
 
 
@@ -38,6 +36,12 @@ OpenBrEd::~OpenBrEd()
 
 
 void OpenBrEd::configure(tue::Configuration config) {
+
+    if (!config.value("debug_mode", debug_mode_, tue::OPTIONAL))
+        std::cout << "[" << module_name_ << "] " << "Parameter 'debug_mode' not found. Using default: " << debug_mode_ << std::endl;
+
+    if (!config.value("debug_folder", debug_folder_, tue::OPTIONAL))
+        std::cout << "[" << module_name_ << "] " << "Parameter 'debug_folder' not found. Using default: " << debug_folder_ << std::endl;
 
     if (debug_mode_){
         // clean the debug folder if debugging is active
@@ -72,15 +76,16 @@ void OpenBrEd::loadConfig(const std::string& config_path) {
     debug_folder_ = "/tmp/open_br_ed/";
     debug_mode_ = false;
 
+    int argc = 1;
+    char* n_argv[] = {"param0"};
 
-//    br::Context::initialize(argc, argv);
+    br::Context::initialize(argc, n_argv);
 
     // Retrieve class for enrolling templates later
-//    br_age_estimation = br::Transform::fromAlgorithm("AgeEstimation");
-//    br_gender_estimation = br::Transform::fromAlgorithm("GenderEstimation");
-//    br_face_rec = br::Transform::fromAlgorithm("FaceRecognition");
+    br_age_estimation = br::Transform::fromAlgorithm("AgeEstimation");
+    br_gender_estimation = br::Transform::fromAlgorithm("GenderEstimation");
+    br_face_rec = br::Transform::fromAlgorithm("FaceRecognition");
 //    br_face_rec_dist = br::Transform::fromAlgorithm("FaceRecognition");
-
 }
 
 
@@ -91,6 +96,10 @@ void OpenBrEd::process(ed::EntityConstPtr e, tue::Configuration& config) const{
 
     if (!init_success_)
         return;
+
+    if (!isFaceFound(config.limitScope())){
+        return;
+    }
 
     // ---------- Prepare measurement ----------
 
@@ -143,31 +152,33 @@ void OpenBrEd::process(ed::EntityConstPtr e, tue::Configuration& config) const{
     double gender_confidence = -1;
     int age = 0;
     double age_confidence = -1;
-/*
+
+
     // initialize template
     br::Template entity_tmpl(cropped_image(bouding_box));
+    br::Template entity_tmpl2(cropped_image(bouding_box));
 
     // Enroll templates
     entity_tmpl >> *br_age_estimation;
-    entity_tmpl >> *br_gender_estimation;
-    entity_tmpl >> *br_face_rec;
+    entity_tmpl2 >> *br_gender_estimation;
+//    entity_tmpl >> *br_face_rec;
 
     const QPoint firstEye = entity_tmpl.file.get<QPoint>("Affine_0");
     const QPoint secondEye = entity_tmpl.file.get<QPoint>("Affine_1");
 
-    printf("%s eyes: (%d, %d) (%d, %d)\n", qPrintable(entity_tmpl.file.fileName()), firstEye.x(), firstEye.y(), secondEye.x(), secondEye.y());
-    printf("%s age: %d\n", qPrintable(entity_tmpl.file.fileName()), int(entity_tmpl.file.get<float>("Age")));
-    printf("%s gender: %s\n", qPrintable(entity_tmpl.file.fileName()), qPrintable(entity_tmpl.file.get<QString>("Gender")));
+    printf("eyes: (%d, %d) (%d, %d)\n", firstEye.x(), firstEye.y(), secondEye.x(), secondEye.y());
+    printf("age: %d\n", int(entity_tmpl.file.get<float>("Age")));
+    printf("gender: %s\n", qPrintable(entity_tmpl2.file.get<QString>("Gender")));
 
     // Compare templates
-    float comparisonA = br_face_rec_dist->compare(target, queryA);
+//    float comparisonA = br_face_rec_dist->compare(target, queryA);
     // Scores range from 0 to 1 and represent match probability
-    printf("Genuine match score: %.3f\n", comparisonA);
+//    printf("Genuine match score: %.3f\n", comparisonA);
 
     age =  int(entity_tmpl.file.get<float>("Age"));
-    gender = qPrintable(entity_tmpl.file.get<QString>("Gender"));
+    gender = qPrintable(entity_tmpl2.file.get<QString>("Gender"));
 
-*/
+
 
     // ----------------------- Assert results -----------------------
 
@@ -296,6 +307,25 @@ void OpenBrEd::showDebugWindow(cv::Mat face_img,
     cv::imshow("Open Biometrics ED Output", debug_display);
 }
 
+
+// ----------------------------------------------------------------------------------------------------
+
+
+bool OpenBrEd::isFaceFound(tue::Configuration config) const{
+
+    double score;
+    std::string group_label = "face";
+
+    if (!config.readGroup("perception_result", tue::OPTIONAL))
+        return false;
+
+    if (!config.readGroup("face_detector", tue::OPTIONAL))
+        return false;
+
+    if (config.value("score", score, tue::OPTIONAL) && config.value("label", group_label, tue::OPTIONAL)){
+        return score == 1;
+    }
+}
 
 // ----------------------------------------------------------------------------------------------------
 

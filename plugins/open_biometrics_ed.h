@@ -4,14 +4,16 @@
 * Date: January 2015
 */
 
-#ifndef ED_PERCEPTION_OPEN_BR_ED_H_
-#define ED_PERCEPTION_OPEN_BR_ED_H_
+#ifndef ED_PERCEPTION_OPEN_BIOMETRICS_ED_H_
+#define ED_PERCEPTION_OPEN_BIOMETRICS_ED_H_
 
 #include <ed/perception_modules/perception_module.h>
 
 // OpenCV includes
 #include <opencv/cv.h>
 #include "opencv2/highgui/highgui.hpp"
+
+#include <openbr/openbr_plugin.h>
 
 class OpenBrEd : public ed::PerceptionModule
 {
@@ -30,12 +32,11 @@ private:
     std::string	module_path_;    /*!< Name of the module, for output */
     std::string debug_folder_;   /*!< Path of the debug folder */
 
-
     // open biometrics
-//    QSharedPointer<br::Transform> br_age_estimation;
-//    QSharedPointer<br::Transform> br_gender_estimation;
-//    QSharedPointer<br::Transform> br_face_rec;
-//    QSharedPointer<br::Distance> br_face_rec_dist;
+    QSharedPointer<br::Transform> br_age_estimation;
+    QSharedPointer<br::Transform> br_gender_estimation;
+    QSharedPointer<br::Transform> br_face_rec;
+    QSharedPointer<br::Distance> br_face_rec_dist;
 
     void showDebugWindow(cv::Mat face_img,
                          std::string name,
@@ -44,6 +45,8 @@ private:
                          double gender_confidence,
                          int age,
                          double age_confidence) const;
+
+    bool isFaceFound(tue::Configuration config) const;
 
 /*
 * ###########################################
