@@ -44,6 +44,8 @@ void OpenBrEd::configure(tue::Configuration config) {
         std::cout << "[" << module_name_ << "] " << "Parameter 'debug_folder' not found. Using default: " << debug_folder_ << std::endl;
 
     if (debug_mode_){
+        std::cout << "[" << module_name_ << "] " << "Debug mode ON" << std::endl;
+
         // clean the debug folder if debugging is active
         try {
             boost::filesystem::path dir(debug_folder_);
@@ -86,6 +88,31 @@ void OpenBrEd::loadConfig(const std::string& config_path) {
     br_gender_estimation = br::Transform::fromAlgorithm("GenderEstimation");
     br_face_rec = br::Transform::fromAlgorithm("FaceRecognition");
 //    br_face_rec_dist = br::Transform::fromAlgorithm("FaceRecognition");
+
+
+    // ---------------------------
+
+    if (debug_mode_){
+        std::cout << "[" << module_name_ << "] " << "Debug mode ON" << std::endl;
+
+        // clean the debug folder if debugging is active
+        try {
+            boost::filesystem::path dir(debug_folder_);
+            boost::filesystem::remove_all(dir);
+            boost::filesystem::create_directories(dir);
+        } catch(const boost::filesystem::filesystem_error& e){
+           if(e.code() == boost::system::errc::permission_denied)
+               std::cout << "[" << module_name_ << "] " << "boost::filesystem permission denied" << std::endl;
+           else
+               std::cout << "[" << module_name_ << "] " << "boost::filesystem failed with error: " << e.code().message() << std::endl;
+        }
+
+        // create debug window
+        cv::namedWindow("Open Biometrics ED Output", CV_WINDOW_AUTOSIZE);
+    }
+
+    init_success_ = true;
+    std::cout << "[" << module_name_ << "] " << "Ready!" << std::endl;
 }
 
 
@@ -153,31 +180,33 @@ void OpenBrEd::process(ed::EntityConstPtr e, tue::Configuration& config) const{
     int age = 0;
     double age_confidence = -1;
 
+//    Globals->enrollAll = true;
 
     // initialize template
-    br::Template entity_tmpl(cropped_image(bouding_box));
-    br::Template entity_tmpl2(cropped_image(bouding_box));
+    br::Template entity_tmpl_age(cropped_image(bouding_box));
+    br::Template entity_tmpl_gender(cropped_image(bouding_box));
 
     // Enroll templates
-    entity_tmpl >> *br_age_estimation;
-    entity_tmpl2 >> *br_gender_estimation;
+    entity_tmpl_age >> *br_age_estimation;
+    entity_tmpl_gender >> *br_gender_estimation;
 //    entity_tmpl >> *br_face_rec;
 
-    const QPoint firstEye = entity_tmpl.file.get<QPoint>("Affine_0");
-    const QPoint secondEye = entity_tmpl.file.get<QPoint>("Affine_1");
+//    const QPoint firstEye = entity_tmpl.file.get<QPoint>("Affine_0");
+//    const QPoint secondEye = entity_tmpl.file.get<QPoint>("Affine_1");
 
-    printf("eyes: (%d, %d) (%d, %d)\n", firstEye.x(), firstEye.y(), secondEye.x(), secondEye.y());
-    printf("age: %d\n", int(entity_tmpl.file.get<float>("Age")));
-    printf("gender: %s\n", qPrintable(entity_tmpl2.file.get<QString>("Gender")));
+//    printf("eyes: (%d, %d) (%d, %d)\n", firstEye.x(), firstEye.y(), secondEye.x(), secondEye.y());
+    printf("age: %d\n", int(entity_tmpl_age.file.get<float>("Age")));
+    printf("gender: %s\n", qPrintable(entity_tmpl_gender.file.get<QString>("Gender")));
 
     // Compare templates
 //    float comparisonA = br_face_rec_dist->compare(target, queryA);
     // Scores range from 0 to 1 and represent match probability
 //    printf("Genuine match score: %.3f\n", comparisonA);
 
-    age =  int(entity_tmpl.file.get<float>("Age"));
-    gender = qPrintable(entity_tmpl2.file.get<QString>("Gender"));
-
+    age =  int(entity_tmpl_age.file.get<float>("Age"));
+    age_confidence =  entity_tmpl_age.file.get<float>("Confidence");
+    gender = qPrintable(entity_tmpl_gender.file.get<QString>("Gender"));
+    gender_confidence =  entity_tmpl_gender.file.get<float>("Confidence");
 
 
     // ----------------------- Assert results -----------------------
@@ -216,6 +245,7 @@ void OpenBrEd::process(ed::EntityConstPtr e, tue::Configuration& config) const{
 
 
     if (debug_mode_){
+        std::cout << "[" << module_name_ << "] " << "Show window" << std::endl;
         showDebugWindow(cropped_image(bouding_box),
                         name,
                         name_confidence,
