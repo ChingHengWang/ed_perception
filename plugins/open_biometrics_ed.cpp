@@ -35,7 +35,7 @@ OpenBrEd::~OpenBrEd()
 // ----------------------------------------------------------------------------------------------------
 
 
-void OpenBrEd::configure(tue::Configuration config) {
+void OpenBrEd::configure(tue::Configuration config){
 
     if (!config.value("debug_mode", debug_mode_, tue::OPTIONAL))
         std::cout << "[" << module_name_ << "] " << "Parameter 'debug_mode' not found. Using default: " << debug_mode_ << std::endl;
@@ -71,7 +71,7 @@ void OpenBrEd::configure(tue::Configuration config) {
 // ----------------------------------------------------------------------------------------------------
 
 
-void OpenBrEd::loadConfig(const std::string& config_path) {
+void OpenBrEd::loadConfig(const std::string& config_path){
 
     module_name_ = "open_br_ed";
     module_path_ = config_path;
@@ -83,10 +83,17 @@ void OpenBrEd::loadConfig(const std::string& config_path) {
 
     br::Context::initialize(argc, n_argv);
 
+    // enable detection of more than one face per entity
+    br::Globals->enrollAll = true;
+
     // Retrieve class for enrolling templates later
+    // alogrithms defined in openbr/openbr/plugins/algorithms.cpp
+    br_age_gender_estimat = br::Transform::fromAlgorithm("FaceDetection+Expand+<FaceClassificationRegistration>+Expand+<FaceClassificationExtraction>+<GenderClassifier>+<AgeRegressor>+Discard");
+
     br_age_estimation = br::Transform::fromAlgorithm("AgeEstimation");
+    br_face_detect = br::Transform::fromAlgorithm("FaceDetection");
     br_gender_estimation = br::Transform::fromAlgorithm("GenderEstimation");
-    br_face_rec = br::Transform::fromAlgorithm("FaceRecognition");
+    br_face_recogn = br::Transform::fromAlgorithm("FaceRecognition");
 //    br_face_rec_dist = br::Transform::fromAlgorithm("FaceRecognition");
 
 
@@ -173,6 +180,10 @@ void OpenBrEd::process(ed::EntityConstPtr e, tue::Configuration& config) const{
 
     // ----------------------- Process -----------------------
 
+    FaceFeatures face_feat;
+    QPoint q_point_temp;
+    QRect q_rect_temp;
+
     std::string name = "";
     double name_confidence = -1;
     std::string gender = "";
@@ -180,33 +191,34 @@ void OpenBrEd::process(ed::EntityConstPtr e, tue::Configuration& config) const{
     int age = 0;
     double age_confidence = -1;
 
-//    Globals->enrollAll = true;
+    // initialize template with the image from the entity
+    br::Template entity_tmpl(cropped_image(bouding_box));
 
-    // initialize template
-    br::Template entity_tmpl_age(cropped_image(bouding_box));
-    br::Template entity_tmpl_gender(cropped_image(bouding_box));
+    // Enroll template
+    entity_tmpl >> *br_age_gender_estimat;
 
-    // Enroll templates
-    entity_tmpl_age >> *br_age_estimation;
-    entity_tmpl_gender >> *br_gender_estimation;
-//    entity_tmpl >> *br_face_rec;
+    // get info from the algorithm
 
-//    const QPoint firstEye = entity_tmpl.file.get<QPoint>("Affine_0");
-//    const QPoint secondEye = entity_tmpl.file.get<QPoint>("Affine_1");
-
-//    printf("eyes: (%d, %d) (%d, %d)\n", firstEye.x(), firstEye.y(), secondEye.x(), secondEye.y());
-    printf("age: %d\n", int(entity_tmpl_age.file.get<float>("Age")));
-    printf("gender: %s\n", qPrintable(entity_tmpl_gender.file.get<QString>("Gender")));
-
-    // Compare templates
-//    float comparisonA = br_face_rec_dist->compare(target, queryA);
-    // Scores range from 0 to 1 and represent match probability
-//    printf("Genuine match score: %.3f\n", comparisonA);
-
-    age =  int(entity_tmpl_age.file.get<float>("Age"));
-    age_confidence =  entity_tmpl_age.file.get<float>("Confidence");
-    gender = qPrintable(entity_tmpl_gender.file.get<QString>("Gender"));
-    gender_confidence =  entity_tmpl_gender.file.get<float>("Confidence");
+    // face size and location
+    q_rect_temp = entity_tmpl.file.get<QRect>("FrontalFace");
+    face_feat.face_x =  q_rect_temp.x();
+    face_feat.face_y =  q_rect_temp.y();
+    face_feat.face_width =  q_rect_temp.width();
+    face_feat.face_height =  q_rect_temp.height();
+    // first eye location
+    q_point_temp = entity_tmpl.file.get<QPoint>("First_Eye");
+    face_feat.first_eye_x =  q_point_temp.x();
+    face_feat.first_eye_y =  q_point_temp.y();
+    // second eye location
+    q_point_temp = entity_tmpl.file.get<QPoint>("Second_Eye");
+    face_feat.second_eye_x =  q_point_temp.x();
+    face_feat.second_eye_y =  q_point_temp.y();
+    // age
+    age =  int(entity_tmpl.file.get<float>("Age"));
+    age_confidence =  entity_tmpl.file.get<float>("Confidence");
+    // gender
+    gender = qPrintable(entity_tmpl.file.get<QString>("Gender"));
+    gender_confidence =  entity_tmpl.file.get<float>("Confidence");
 
 
     // ----------------------- Assert results -----------------------
@@ -222,11 +234,19 @@ void OpenBrEd::process(ed::EntityConstPtr e, tue::Configuration& config) const{
     config.setValue("label", "");
     config.setValue("score", 0);
 
+    // face detection result
+    config.writeGroup("openbr_detection");
+    config.setValue("x", face_feat.face_x);
+    config.setValue("y", face_feat.face_y);
+    config.setValue("width", face_feat.face_width);
+    config.setValue("height", face_feat.face_height);
+    config.endGroup();  // close openbr_detection group
+
     // face recogniton result
-    config.writeGroup("openbr_face");
+    config.writeGroup("openbr_recognition");
     config.setValue("label", name);
     config.setValue("score", name_confidence);
-    config.endGroup();  // close openbr_face group
+    config.endGroup();  // close openbr_recognition group
 
     // age estimation result
     config.writeGroup("openbr_age");
