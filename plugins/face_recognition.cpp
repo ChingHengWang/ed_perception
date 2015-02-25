@@ -661,8 +661,6 @@ void FaceRecognition::showDebugWindow(cv::Mat face_aligned,
                                       std::string face_match,
                                       double face_confidence) const{
 
-    int key_press;
-
     cv::Scalar color_red (0, 0, 255);
     cv::Scalar color_yellow (0, 255, 255);
     cv::Scalar color_green (0, 204, 0);
