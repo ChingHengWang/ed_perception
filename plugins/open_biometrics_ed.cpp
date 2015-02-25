@@ -73,14 +73,17 @@ void OpenBrEd::configure(tue::Configuration config){
 
 void OpenBrEd::loadConfig(const std::string& config_path){
 
+    // default parameters values, may be changed in configure()
     module_name_ = "open_br_ed";
     module_path_ = config_path;
     debug_folder_ = "/tmp/open_br_ed/";
     debug_mode_ = false;
 
+    // fake input args for the br initialize
     int argc = 1;
     char* n_argv[] = {"param0"};
 
+    std::cout << "[" << module_name_ << "] " << "Initializing Open Biometrics" << std::endl;
     br::Context::initialize(argc, n_argv);
 
     // enable detection of more than one face per entity
@@ -88,11 +91,8 @@ void OpenBrEd::loadConfig(const std::string& config_path){
 
     // Retrieve class for enrolling templates later
     // alogrithms defined in openbr/openbr/plugins/algorithms.cpp
-    br_age_gender_estimat = br::Transform::fromAlgorithm("FaceDetection+Expand+<FaceClassificationRegistration>+Expand+<FaceClassificationExtraction>+<GenderClassifier>+<AgeRegressor>+Discard");
-
-    br_age_estimation = br::Transform::fromAlgorithm("AgeEstimation");
+    br_age_gender_transf = br::Transform::fromAlgorithm("FaceDetection+Expand+<FaceClassificationRegistration>+Expand+<FaceClassificationExtraction>+<GenderClassifier>/<AgeRegressor>+Discard");
     br_face_detect = br::Transform::fromAlgorithm("FaceDetection");
-    br_gender_estimation = br::Transform::fromAlgorithm("GenderEstimation");
     br_face_recogn = br::Transform::fromAlgorithm("FaceRecognition");
 //    br_face_rec_dist = br::Transform::fromAlgorithm("FaceRecognition");
 
@@ -100,8 +100,6 @@ void OpenBrEd::loadConfig(const std::string& config_path){
     // ---------------------------
 
     if (debug_mode_){
-        std::cout << "[" << module_name_ << "] " << "Debug mode ON" << std::endl;
-
         // clean the debug folder if debugging is active
         try {
             boost::filesystem::path dir(debug_folder_);
@@ -180,9 +178,11 @@ void OpenBrEd::process(ed::EntityConstPtr e, tue::Configuration& config) const{
 
     // ----------------------- Process -----------------------
 
-    FaceFeatures face_feat;
+    FaceFeatures face_feats;
     QPoint q_point_temp;
     QRect q_rect_temp;
+    bool face_found = false;
+    bool eyes_found = false;
 
     std::string name = "";
     double name_confidence = -1;
@@ -194,31 +194,48 @@ void OpenBrEd::process(ed::EntityConstPtr e, tue::Configuration& config) const{
     // initialize template with the image from the entity
     br::Template entity_tmpl(cropped_image(bouding_box));
 
-    // Enroll template
-    entity_tmpl >> *br_age_gender_estimat;
+    // Enroll/register template
+    entity_tmpl >> *br_age_gender_transf;
 
     // get info from the algorithm
 
-    // face size and location
-    q_rect_temp = entity_tmpl.file.get<QRect>("FrontalFace");
-    face_feat.face_x =  q_rect_temp.x();
-    face_feat.face_y =  q_rect_temp.y();
-    face_feat.face_width =  q_rect_temp.width();
-    face_feat.face_height =  q_rect_temp.height();
-    // first eye location
-    q_point_temp = entity_tmpl.file.get<QPoint>("First_Eye");
-    face_feat.first_eye_x =  q_point_temp.x();
-    face_feat.first_eye_y =  q_point_temp.y();
-    // second eye location
-    q_point_temp = entity_tmpl.file.get<QPoint>("Second_Eye");
-    face_feat.second_eye_x =  q_point_temp.x();
-    face_feat.second_eye_y =  q_point_temp.y();
-    // age
-    age =  int(entity_tmpl.file.get<float>("Age"));
-    age_confidence =  entity_tmpl.file.get<float>("Confidence");
-    // gender
-    gender = qPrintable(entity_tmpl.file.get<QString>("Gender"));
-    gender_confidence =  entity_tmpl.file.get<float>("Confidence");
+    // get face size and location
+    if (entity_tmpl.file.contains("FrontalFace")){
+        q_rect_temp = entity_tmpl.file.get<QRect>("FrontalFace");
+        face_feats.face_x =  q_rect_temp.x();
+        face_feats.face_y =  q_rect_temp.y();
+        face_feats.face_width =  q_rect_temp.width();
+        face_feats.face_height =  q_rect_temp.height();
+
+        face_found = true;
+    }
+
+    // get eyes location
+    if (entity_tmpl.file.contains("First_Eye") && entity_tmpl.file.contains("Second_Eye")){
+        // first eye location
+        q_point_temp = entity_tmpl.file.get<QPoint>("First_Eye");
+        face_feats.first_eye_x =  q_point_temp.x();
+        face_feats.first_eye_y =  q_point_temp.y();
+        // second eye location
+        q_point_temp = entity_tmpl.file.get<QPoint>("Second_Eye");
+        face_feats.second_eye_x =  q_point_temp.x();
+        face_feats.second_eye_y =  q_point_temp.y();
+
+        eyes_found = true;
+    }
+
+    // get gender and age info
+    if (face_found){
+        // age
+        age =  int(entity_tmpl.file.get<float>("Age"));
+        age_confidence =  entity_tmpl.file.get<float>("Confidence");
+        // gender
+        gender = qPrintable(entity_tmpl.file.get<QString>("Gender"));
+        gender_confidence =  entity_tmpl.file.get<float>("Confidence");
+    }
+
+//    std::cout << "[" << module_name_ << "] " << "Age: " << age << std::endl;
+//    std::cout << "[" << module_name_ << "] " << "Gender: " << gender << std::endl;
 
 
     // ----------------------- Assert results -----------------------
@@ -235,12 +252,14 @@ void OpenBrEd::process(ed::EntityConstPtr e, tue::Configuration& config) const{
     config.setValue("score", 0);
 
     // face detection result
-    config.writeGroup("openbr_detection");
-    config.setValue("x", face_feat.face_x);
-    config.setValue("y", face_feat.face_y);
-    config.setValue("width", face_feat.face_width);
-    config.setValue("height", face_feat.face_height);
-    config.endGroup();  // close openbr_detection group
+    if (face_found){
+        config.writeGroup("openbr_detection");
+        config.setValue("x", face_feats.face_x);
+        config.setValue("y", face_feats.face_y);
+        config.setValue("width", face_feats.face_width);
+        config.setValue("height", face_feats.face_height);
+        config.endGroup();  // close openbr_detection group
+    }
 
     // face recogniton result
     config.writeGroup("openbr_recognition");
@@ -248,25 +267,27 @@ void OpenBrEd::process(ed::EntityConstPtr e, tue::Configuration& config) const{
     config.setValue("score", name_confidence);
     config.endGroup();  // close openbr_recognition group
 
-    // age estimation result
-    config.writeGroup("openbr_age");
-    config.setValue("label", age);
-    config.setValue("score", age_confidence);
-    config.endGroup();  // close openbr_age group
+    if (face_found){
+        // age estimation result
+        config.writeGroup("openbr_age");
+        config.setValue("label", age);
+        config.setValue("score", age_confidence);
+        config.endGroup();  // close openbr_age group
 
-    // gender estimation
-    config.writeGroup("openbr_gender");
-    config.setValue("label", gender);
-    config.setValue("score", gender_confidence);
-    config.endGroup();  // close openbr_gender group
+        // gender estimation
+        config.writeGroup("openbr_gender");
+        config.setValue("label", gender);
+        config.setValue("score", gender_confidence);
+        config.endGroup();  // close openbr_gender group
+    }
 
     config.endGroup();  // close open_biometrics_ed group
     config.endGroup();  // close perception_result group
 
 
-    if (debug_mode_){
-        std::cout << "[" << module_name_ << "] " << "Show window" << std::endl;
+    if (debug_mode_ && face_found){
         showDebugWindow(cropped_image(bouding_box),
+                        face_feats,
                         name,
                         name_confidence,
                         gender,
@@ -281,6 +302,7 @@ void OpenBrEd::process(ed::EntityConstPtr e, tue::Configuration& config) const{
 
 
 void OpenBrEd::showDebugWindow(cv::Mat face_img,
+                               FaceFeatures face_feats,
                                std::string name,
                                double name_confidence,
                                std::string gender,
@@ -288,7 +310,7 @@ void OpenBrEd::showDebugWindow(cv::Mat face_img,
                                int age,
                                double age_confidence) const{
 
-    int key_press;
+    int max_size = 100;
 
     cv::Scalar color_red (0, 0, 255);
     cv::Scalar color_yellow (0, 255, 255);
@@ -300,9 +322,23 @@ void OpenBrEd::showDebugWindow(cv::Mat face_img,
     cv::Scalar gender_color = color_white;
     cv::Scalar age_color = color_white;
 
-    cv::Mat debug_display(cv::Size(face_img.cols + 60, face_img.rows + 135), CV_8UC1, cv::Scalar(0,0,0));
-    cv::Mat debug_roi = debug_display(cv::Rect(30,0, face_img.cols, face_img.rows));
-    face_img.copyTo(debug_roi);
+
+    // create a copy of the face and resize it
+    cv::Mat face_resized = face_img(cv::Rect(face_feats.face_x,
+                                             face_feats.face_y,
+                                             face_feats.face_width,
+                                             face_feats.face_height));
+
+    if (face_feats.face_height > face_feats.face_width){
+        resize(face_resized, face_resized, cv::Size(max_size*(face_feats.face_height/face_feats.face_width), max_size));
+    }else
+        resize(face_resized, face_resized, cv::Size(max_size, max_size*(face_feats.face_width/face_feats.face_height)));
+
+
+    cv::Mat debug_display(cv::Size(max_size + 80, max_size + 110), CV_8UC1, cv::Scalar(0,0,0));
+    cv::Mat debug_roi = debug_display(cv::Rect(30,0, max_size, max_size));
+
+    face_resized.copyTo(debug_roi);
 
     cvtColor(debug_display, debug_display, CV_GRAY2RGB);
 
@@ -350,9 +386,9 @@ void OpenBrEd::showDebugWindow(cv::Mat face_img,
     std::string info3("Age:  " + boost::str(boost::format("%.0f") % age) + " (" + boost::str(boost::format("%.0f") % age_confidence) + ")");
 
     // draw text
-    cv::putText(debug_display, info1, cv::Point(10 , face_img.rows + 20), 1, 1.1, name_color, 1, CV_AA);
-    cv::putText(debug_display, info2, cv::Point(10 , face_img.rows + 40), 1, 1.1, gender_color, 1, CV_AA);
-    cv::putText(debug_display, info3, cv::Point(10 , face_img.rows + 60), 1, 1.1, age_color, 1, CV_AA);
+    cv::putText(debug_display, info1, cv::Point(10 , max_size + 20), 1, 1.1, name_color, 1, CV_AA);
+    cv::putText(debug_display, info2, cv::Point(10 , max_size + 40), 1, 1.1, gender_color, 1, CV_AA);
+    cv::putText(debug_display, info3, cv::Point(10 , max_size + 60), 1, 1.1, age_color, 1, CV_AA);
 
     cv::imshow("Open Biometrics ED Output", debug_display);
 }

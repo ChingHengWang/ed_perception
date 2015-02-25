@@ -44,14 +44,13 @@ private:
     std::string debug_folder_;   /*!< Path of the debug folder */
 
     // open biometrics
-    QSharedPointer<br::Transform> br_age_gender_estimat;
-    QSharedPointer<br::Transform> br_age_estimation;
-    QSharedPointer<br::Transform> br_gender_estimation;
+    QSharedPointer<br::Transform> br_age_gender_transf;
     QSharedPointer<br::Transform> br_face_recogn;
     QSharedPointer<br::Transform> br_face_detect;
     QSharedPointer<br::Distance> br_face_rec_dist;
 
     void showDebugWindow(cv::Mat face_img,
+                         FaceFeatures face_feats,
                          std::string name,
                          double name_confidence,
                          std::string gender,
