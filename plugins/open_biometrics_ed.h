@@ -42,6 +42,7 @@ private:
     std::string	module_name_;    /*!< Name of the module, for output */
     std::string	module_path_;    /*!< Name of the module, for output */
     std::string debug_folder_;   /*!< Path of the debug folder */
+    int age_offset_;
 
     // open biometrics
     QSharedPointer<br::Transform> br_age_gender_transf;

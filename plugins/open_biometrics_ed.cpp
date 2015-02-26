@@ -43,8 +43,10 @@ void OpenBrEd::configure(tue::Configuration config){
     if (!config.value("debug_folder", debug_folder_, tue::OPTIONAL))
         std::cout << "[" << module_name_ << "] " << "Parameter 'debug_folder' not found. Using default: " << debug_folder_ << std::endl;
 
+    if (!config.value("age_offset", age_offset_, tue::OPTIONAL))
+        std::cout << "[" << module_name_ << "] " << "Parameter 'age_offset' not found. Using default: " << age_offset_ << std::endl;
+
     if (debug_mode_){
-        std::cout << "[" << module_name_ << "] " << "Debug mode ON" << std::endl;
 
         // clean the debug folder if debugging is active
         try {
@@ -78,6 +80,7 @@ void OpenBrEd::loadConfig(const std::string& config_path){
     module_path_ = config_path;
     debug_folder_ = "/tmp/open_br_ed/";
     debug_mode_ = false;
+    age_offset_ = -10;
 
     // fake input args for the br initialize
     int argc = 1;
@@ -226,8 +229,8 @@ void OpenBrEd::process(ed::EntityConstPtr e, tue::Configuration& config) const{
 
     // get gender and age info
     if (face_found){
-        // age
-        age =  int(entity_tmpl.file.get<float>("Age"));
+        // age, plus an offset because the algorithm was trained with american convict faces
+        age =  int(entity_tmpl.file.get<float>("Age")) + age_offset_;
         age_confidence =  entity_tmpl.file.get<float>("Confidence");
         // gender
         gender = qPrintable(entity_tmpl.file.get<QString>("Gender"));
