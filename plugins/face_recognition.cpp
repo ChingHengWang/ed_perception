@@ -122,6 +122,7 @@ void FaceRecognition::configure(tue::Configuration config) {
         std::cout << "[" << module_name_ << "] " << "Faces learned will be saved in: " << saved_faces_dir_ << std::endl;
     }
 
+
     // create service to initiate face learning
     if (enable_learning_service_){
         // create and advertise service to initiate learning
