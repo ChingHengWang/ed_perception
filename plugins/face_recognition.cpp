@@ -57,7 +57,6 @@ void FaceRecognition::configure(tue::Configuration config) {
     if (!config.value("saved_faces_dir", saved_faces_dir_, tue::OPTIONAL))
         std::cout << "[" << module_name_ << "] " << "Parameter 'saved_faces_dir' not found. Using default: " << saved_faces_dir_ << std::endl;
 
-    saved_faces_dir_ = (std::string)getenv("HOME") +saved_faces_dir_;
 
     if (!config.value("use_Eigen", using_Eigen_, tue::OPTIONAL))
         std::cout << "[" << module_name_ << "] " << "Parameter 'use_Eigen' not found. Using default: " << using_Eigen_ << std::endl;
@@ -98,6 +97,7 @@ void FaceRecognition::configure(tue::Configuration config) {
     if (!config.value("max_faces_learn", max_faces_learn_, tue::OPTIONAL))
         std::cout << "[" << module_name_ << "] " << "Parameter 'max_faces_learn' not found. Using default: " << max_faces_learn_ << std::endl;
 
+    saved_faces_dir_ = (std::string)getenv("HOME") + saved_faces_dir_;
 
     // create debug window
     if (debug_mode_){
@@ -122,6 +122,7 @@ void FaceRecognition::configure(tue::Configuration config) {
         std::cout << "[" << module_name_ << "] " << "Faces learned will be saved in: " << saved_faces_dir_ << std::endl;
     }
 
+    // create service to initiate face learning
     if (enable_learning_service_){
         // create and advertise service to initiate learning
         if (!ros::isInitialized())
@@ -130,15 +131,15 @@ void FaceRecognition::configure(tue::Configuration config) {
             ros::init(remapping_args, "ed");
         }
 
-        ros::NodeHandle nh;
+        ros::NodeHandle nh("~");
 
         ros::AdvertiseServiceOptions opt_srv_get_entity_info =
                 ros::AdvertiseServiceOptions::create<ed_perception::LearnPerson>(
-                    "/face_recognition/learn", boost::bind(&FaceRecognition::srvStartLearning, this, _1, _2),
+                    "face_recognition/learn", boost::bind(&FaceRecognition::srvStartLearning, this, _1, _2),
                     ros::VoidPtr(), &cb_queue_);
 
         srv_learn_face = nh.advertiseService(opt_srv_get_entity_info);
-        std::cout << "[" << module_name_ << "] " << "Use 'rosservice call /face_recognition/learn PERSON_NAME' to initialize learning" << std::endl;
+        std::cout << "[" << module_name_ << "] " << "Use 'rosservice call <ROBOT NAME>/ed/face_recognition/learn <PERSON_NAME>' to initiate learning" << std::endl;
     }
 
     init_success_ = true;
