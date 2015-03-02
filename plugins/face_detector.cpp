@@ -115,6 +115,19 @@ void FaceDetector::loadConfig(const std::string& config_path) {
     classif_profile_min_neighbours_ = 3;
     classif_profile_min_size_ = cv::Size(20,20);
     debug_folder_ = "/tmp/face_detector/";
+
+
+    // only use in cases where configure() is not called
+    cascade_front_files_path_ = module_path_ + cascade_front_files_path_;
+    cascade_profile_files_path_ = module_path_ + cascade_profile_files_path_;
+    if (!boost::filesystem::exists(cascade_front_files_path_) || !boost::filesystem::exists(cascade_profile_files_path_)){
+        init_success_ = false;
+        std::cout << "[" << module_name_ << "] " << "Couldn't find cascade files for detection (" << cascade_profile_files_path_
+                  <<  "). Face dection will not work!" << std::endl;
+    }else{
+        init_success_ = true;
+        std::cout << "[" << module_name_ << "] " << "Ready!" << std::endl;
+    }
 }
 
 
