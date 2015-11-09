@@ -188,17 +188,17 @@ target_link_libraries(color_matcher shared_methods ${catkin_LIBRARIES})
 #                                                TOOLS
 # ------------------------------------------------------------------------------------------------
 
-add_library(train-and-test-lib tools/image_crawler.cpp tools/annotated_image.cpp)
-target_link_libraries(train-and-test-lib ed_perception ${catkin_LIBRARIES})
+#add_library(train-and-test-lib tools/image_crawler.cpp tools/annotated_image.cpp)
+#target_link_libraries(train-and-test-lib ed_perception ${catkin_LIBRARIES})
 
-add_executable(train-perception tools/train_perception.cpp)
-target_link_libraries(train-perception train-and-test-lib ed_perception)
+#add_executable(train-perception tools/train_perception.cpp)
+#target_link_libraries(train-perception train-and-test-lib ed_perception)
 
-add_executable(test-perception tools/test_perception.cpp tools/confusionmatrix.cpp)
-target_link_libraries(test-perception train-and-test-lib ed_perception ${OpenCV_LIBRARIES})
+#add_executable(test-perception tools/test_perception.cpp tools/confusionmatrix.cpp)
+#target_link_libraries(test-perception train-and-test-lib ed_perception ${OpenCV_LIBRARIES})
 
-add_executable(annotation-gui tools/annotation_gui.cpp)
-target_link_libraries(annotation-gui train-and-test-lib ed_perception ${QT_LIBRARIES} ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
+#add_executable(annotation-gui tools/annotation_gui.cpp)
+#target_link_libraries(annotation-gui train-and-test-lib ed_perception ${QT_LIBRARIES} ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 
 # Qt Package
 # find_package(Qt4 COMPONENTS QtCore QtGui QtApplication)
