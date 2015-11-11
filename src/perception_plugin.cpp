@@ -92,6 +92,20 @@ bool PerceptionPlugin::srvClassify(ed_perception::Classify::Request& req, ed_per
     prior.setUnknownScore(req.prior.unknown_probability);
 
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // If requested, add all ids that can be classified
+
+    if (req.all_ids)
+    {
+        res.ids.clear();
+        for(ed::WorldModel::const_iterator e_it = world_->begin(); e_it != world_->end(); ++e_it)
+        {
+            const ed::EntityConstPtr& e = *e_it;
+            if (e->bestMeasurement())
+                req.ids.push_back(e->id().str());
+        }
+    }
+
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     // Classify
 
     for(std::vector<std::string>::const_iterator it = req.ids.begin(); it != req.ids.end(); ++it)
