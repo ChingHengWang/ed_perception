@@ -16,6 +16,7 @@ before_install:
 
 install:
   - source <(wget -O- https://raw.githubusercontent.com/tue-robotics/tue-env/master/installer/scripts/bootstrap-ros-$ROS_DISTRO)
+  - tue-get install openface
   - tue-get install ros-$REPOSITORY_NAME
   - source ~/.tue/setup.bash # source all target setup files
 
@@ -39,3 +40,6 @@ script:
   - catkin_make install   # installing the package
   - catkin_make tests     # build the tests
   - catkin_make run_tests # and run them
+  -
+  - roscd ed_perception/tools
+  - python openface_recognition.py
